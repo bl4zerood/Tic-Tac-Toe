@@ -21,6 +21,9 @@ class TicTacToe(QWidget):
 		self.current_player = "X"
 		self.game_active = True
 
+		# track the order of moves for each player so we can remove the first one later
+		self.move_history = {"X": [], "O": []}
+
 		main_layout = QVBoxLayout()
 		self.status_label = QLabel("Turn: X")
 		self.status_label.setAlignment(Qt.AlignCenter)
@@ -62,8 +65,40 @@ class TicTacToe(QWidget):
 		if btn.text():
 			return
 
+
+		if all(b.text() for b in self.buttons):
+			# Prevent a draw as a fallback: remove the earliest move of each player (if any) so the game can continue.
+			removed_any = False
+			for player in ("X", "O"):
+				hist = self.move_history.get(player, [])
+				if hist:
+					idx_to_remove = hist.pop(0)
+					self.buttons[idx_to_remove].setText("")
+					self.buttons[idx_to_remove].setEnabled(True)
+					self.buttons[idx_to_remove].setStyleSheet("")
+					removed_any = True
+			if not removed_any:
+				# fallback: truly a draw (no history to remove)
+				self.game_active = False
+				self.status_label.setText("Draw")
+				QMessageBox.information(self, "Game Over", "It's a draw!")
+				return
+
+		# Personal rule: if the current player already has 3 marks on the board
+		# (i.e. this will be their 4th), remove their earliest mark before placing.
+		player_hist = self.move_history.get(self.current_player, [])
+		if len(player_hist) == 3:
+			first_idx = player_hist.pop(0)
+			# clear that button
+			self.buttons[first_idx].setText("")
+			self.buttons[first_idx].setEnabled(True)
+			self.buttons[first_idx].setStyleSheet("")
+
+		# place the current player's mark
 		btn.setText(self.current_player)
 		btn.setEnabled(False)
+		# record this move in history
+		self.move_history[self.current_player].append(index)
 
 		winner = self.check_winner()
 		if winner:
@@ -71,12 +106,6 @@ class TicTacToe(QWidget):
 			self.status_label.setText(f"Winner: {winner}")
 			QMessageBox.information(self, "Game Over", f"{winner} wins!")
 			self.highlight_winner(winner)
-			return
-
-		if all(b.text() for b in self.buttons):
-			self.game_active = False
-			self.status_label.setText("Draw")
-			QMessageBox.information(self, "Game Over", "It's a draw!")
 			return
 
 		self.toggle_player()
@@ -137,6 +166,8 @@ class TicTacToe(QWidget):
 		self.current_player = "X"
 		self.game_active = True
 		self.status_label.setText("Turn: X")
+		# clear move history
+		self.move_history = {"X": [], "O": []}
 
 
 def main():
